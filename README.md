@@ -1,166 +1,134 @@
-# 🤖 ENSAJ Chatbot - Système RAG
+# Assistant virtuel ENSA El Jadida
 
-Un chatbot intelligent utilisant **Retrieval-Augmented Generation (RAG)** pour répondre à vos questions sur l'ENSAJ.
+Application web (React + FastAPI) : chatbot RAG avec avatar 3D, appel vidéo vocal et sources citées.
 
-## 📋 Prérequis
+## Structure
+```
+.
+├── main.py              # API FastAPI (RAG Chroma + Ollama, agent LangGraph, Whisper)
+├── requirements.txt     # Dépendances Python
+├── data/                # Vos documents .txt et .csv
+├── assets/
+│   └── mon_avatar.glb   # Avatar 3D
+├── tools/
+│   └── generate_finetune_data.py
+├── frontend/            # Interface React (Vite)
+├── setup.bat / start.bat / start.sh
+└── README.md
+```
 
-- **Python 3.8+**
-- **Ollama** (pour les modèles LLM et embeddings)
-  - [Télécharger Ollama](https://ollama.ai)
-  - Modèles requis : `mistral` et `nomic-embed-text`
-- **Microphone** (pour la reconnaissance vocale - optionnel)
-- **Haut-parleurs** (pour la synthèse vocale - optionnel)
+## Prérequis
+- Python 3.10 ou 3.11
+- Node.js 18 ou plus récent
+- ffmpeg (requis par Whisper) : `winget install ffmpeg`
+- Ollama avec les modèles :
+  ```bash
+  ollama pull llama3.2
+  ollama pull nomic-embed-text
+  ```
+  Pour utiliser un autre modèle (par exemple `mistral`), définissez la variable d'environnement `LLM_MODEL`.
 
-## 🚀 Installation
+## Installation
 
 ### 1. Cloner le projet
 ```bash
-git clone https://github.com/ayasadoq/Ensaj-chatbot.git
-cd Ensaj-chatbot
+git clone https://github.com/korachia1KA/chatbot-ensa-el-jadida.git
+cd chatbot-ensa-el-jadida
 ```
 
-### 2. Créer un environnement virtuel Python
+### 2. Backend (à la racine du projet)
 ```bash
-python -m venv ensajenv
+python -m venv .venv
+.venv\Scripts\activate
+python -m pip install --upgrade pip wheel
+python -m pip install "setuptools<81"
+python -m pip install --no-build-isolation -r requirements.txt
 ```
+Utilisez toujours `python -m pip` et non `pip` : certaines politiques de sécurité Windows (Device Guard) bloquent `pip.exe` dans le dossier du projet.
 
-**Activer l'environnement :**
-- **Windows (PowerShell)** :
-  ```powershell
-  .\ensajenv\Scripts\Activate.ps1
-  ```
-- **Windows (CMD)** :
-  ```cmd
-  ensajenv\Scripts\activate.bat
-  ```
-- **macOS/Linux** :
-  ```bash
-  source ensajenv/bin/activate
-  ```
-
-### 3. Installer les dépendances
+### 3. Frontend
 ```bash
-pip install -r requirements.txt
+cd frontend
+npm install
+cd ..
 ```
 
-## 🔧 Configuration d'Ollama
+### 4. Documents
+Placez vos fichiers `.txt` et `.csv` (clubs, filières, règlement, contacts, emplois du temps) dans `data/`.
 
-### 1. Démarrer le service Ollama
+## Lancement
+
+Gardez Ollama actif en arrière-plan. S'il tourne déjà, ne lancez pas `ollama serve` une seconde fois.
+
+**Terminal 1 : backend**
 ```bash
-ollama serve
+.venv\Scripts\activate
+python -m uvicorn main:app --port 8000
 ```
 
-### 2. Télécharger les modèles requis (dans un autre terminal)
+**Terminal 2 : frontend**
 ```bash
-# Télécharger le modèle Mistral (pour les réponses)
-ollama pull mistral
-
-# Télécharger le modèle nomic-embed-text (pour les embeddings)
-ollama pull nomic-embed-text
+cd frontend
+npm run dev
 ```
 
-Vérifier que les modèles sont installés :
+Ouvrez ensuite http://localhost:5173
+
+## Utilisation
+- **Conversation** : écrivez ou cliquez sur le micro. Les sources utilisées s'affichent à droite.
+- **Appel vidéo** : avatar en portrait. Appuyez sur « Parler », puis sur « Envoyer ma question ».
+- **Réindexer les documents** : à cliquer après chaque modification du dossier `data/`.
+- **Lecture vocale** : activable ou désactivable dans la barre latérale.
+
+## Fonctionnement du RAG
+1. Les documents de `data/` sont chargés (.txt et .csv).
+2. Ils sont découpés en morceaux de 800 caractères (chevauchement de 100).
+3. `nomic-embed-text` les convertit en vecteurs, stockés dans ChromaDB (dossier `chroma_db/`, créé automatiquement).
+4. Un routeur LangGraph distingue les salutations des vraies questions.
+5. Pour une question, les 4 extraits les plus proches sont récupérés.
+6. Le modèle génère la réponse à partir de ces extraits, et ils sont affichés comme sources.
+
+## Génération de données de fine-tuning (optionnel)
 ```bash
-ollama list
+python tools/generate_finetune_data.py
 ```
+À lancer depuis la racine du projet. Le script lit `data/` et écrit `dataset_ensaj.json`.
 
-## 📁 Structure des données
+## Dépannage
 
-Le dossier `data/` contient vos documents :
+**`pip.exe` bloqué par Device Guard**
+Utilisez `python -m pip ...` et `python -m uvicorn ...`.
 
-```
-data/
-├── clubs.txt          # Informations sur les clubs
-├── Contact.csv        # Contacts (format CSV)
-├── emploi_*.csv       # Emplois du temps par filière
-├── ensaj.txt          # Informations générales ENSAJ
-├── filiere.txt        # Informations sur les filières
-└── reglement.txt      # Règlements
-```
-
-**Formats supportés :**
-- `.txt` : Fichiers texte bruts
-- `.csv` : Fichiers CSV
-
-## 🎤 Fonctionnalités
-
-- **Chatbot RAG** : Recherche et génération augmentée par récupération
-- **Reconnaissance vocale** : Posez vos questions par la voix
-- **Synthèse vocale** : Écoutez les réponses du chatbot
-- **Recherche sémantique** : Trouve les documents pertinents avec ChromaDB
-- **Historique de conversation** : Conserve l'historique de vos interactions
-- **Interface intuitive** : Interface Streamlit facile à utiliser
-
-## ▶️ Lancer le chatbot
-
+**`Form data requires "python-multipart"`**
+Le venv n'est pas activé ou les dépendances ne sont pas installées dans le venv. Vérifiez la présence de `(.venv)` dans l'invite, puis :
 ```bash
-streamlit run app.py
+python -m pip install -r requirements.txt
 ```
 
-L'application s'ouvrira dans votre navigateur à `http://localhost:8501`
+**`No module named 'pkg_resources'`**
+```bash
+python -m pip install "setuptools<81" wheel
+python -m pip install --no-build-isolation -r requirements.txt
+```
 
-## 💬 Utilisation
+**« Moteur indisponible » dans l'interface**
+Ollama n'est pas lancé ou un modèle manque. Vérifiez avec `ollama list`.
 
-1. **Interface Streamlit** : L'application se charge automatiquement
-2. **Initialisation** : Le système charge vos documents et crée la base vectorielle FAISS (première utilisation peut prendre quelques minutes)
-3. **Poser une question** : Écrivez votre question dans le champ en bas
-4. **Obtenir une réponse** : Le chatbot recherche les documents pertinents et génère une réponse basée sur le contenu
+**Avatar introuvable (erreur 404)**
+Vérifiez que le fichier est bien `assets/mon_avatar.glb`.
 
-### Exemple de questions
-- "Quels sont les clubs disponibles à l'ENSAJ ?"
-- "Qui est le responsable de la filière informatique ?"
-- "Quels sont les horaires de contact ?"
+**Micro sans effet ou transcription impossible**
+Autorisez le micro dans le navigateur et vérifiez que ffmpeg est installé (rouvrez le terminal après installation).
 
-## 🛠️ Architecture
+**Sources absentes dans les réponses**
+Un ancien dossier `chroma_db` n'enregistre pas les noms de fichiers. Supprimez-le ou cliquez sur « Réindexer les documents ».
 
-Le système utilise :
+**`shap requires numpy>=2`**
+Simple avertissement : `shap` est un autre paquet de votre PC, sans lien avec ce projet.
 
-- **Streamlit** : Interface web interactive
-- **LangChain** : Framework pour les applications LLM
-- **Ollama** : Modèles LLM locaux
-- **FAISS** : Base vectorielle pour la recherche sémantique
-- **RecursiveCharacterTextSplitter** : Découpage intelligent des documents
+## Auteur
+Abdelghafour Korachi, ENSA El Jadida
+GitHub : [@korachia1KA](https://github.com/korachia1KA)
 
-## 🔄 Flux du système RAG
-
-1. **Chargement** : Les documents (.txt, .csv) sont chargés
-2. **Découpage** : Texte divisé en chunks (600 caractères avec overlap de 80)
-3. **Embeddings** : Conversion en vecteurs via `nomic-embed-text`
-4. **FAISS** : Indexation vectorielle pour recherche rapide
-5. **Requête** : La question est convertie en vecteur
-6. **Recherche** : Les 4 chunks les plus pertinents sont trouvés
-7. **Génération** : Mistral génère une réponse basée sur le contexte
-
-## 🧹 Gestion
-
-### Effacer l'historique des messages
-Cliquez sur le bouton 🗑️ dans la barre latérale
-
-### Réinitialiser le système
-Fermez l'application et relancez `streamlit run app.py`
-
-## ⚠️ Dépannage
-
-### "Le système RAG n'est pas prêt"
-- Vérifiez qu'Ollama fonctionne (`ollama serve`)
-- Vérifiez que les modèles sont installés (`ollama list`)
-
-### "Aucun document chargé"
-- Créez le dossier `data/` s'il n'existe pas
-- Ajoutez des fichiers `.txt` ou `.csv` dans ce dossier
-
-### Erreur de connexion à Ollama
-- Assurez-vous qu'Ollama s'exécute en background
-- Port par défaut : `http://localhost:11434`
-
-### Lenteur de l'application
-- C'est normal lors de la première initialisation (création de la base FAISS)
-- Les requêtes suivantes sont beaucoup plus rapides
-
-## 📝 Licence
-
+## Licence
 MIT
-
-## 👤 Auteur
-
-[abdelghafour korachi](https://github.com/korachia1KA)

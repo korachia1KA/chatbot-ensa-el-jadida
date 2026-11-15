@@ -20,4 +20,9 @@ chroma_db/
 *.mp3
 
 # Ignorer les fichiers systèmes
-.DS_Store
+.DS_Storenode_modules/
+dist/
+__pycache__/
+.venv/
+backend/chroma_db/
+*.wav
